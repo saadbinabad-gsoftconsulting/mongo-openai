@@ -15,13 +15,25 @@ mongo_client = pymongo.MongoClient("mongodb+srv://saad:gsoft2hai@cluster0.ekcwi.
 db = mongo_client["Solar"]
 collection = db["SolarInfo"]
 
+# Fetch one document from the collection to get the schema
+sample_document = collection.find_one()
+
+# Debugging: Print sample document schema
+print("Sample Document Schema:", sample_document)
+
+# Convert the document to a dictionary and get the keys
+if sample_document:
+    fields = list(sample_document.keys())
+else:
+    fields = []
+
 # Functions for prompt creation
 def get_system_prompt():
-    return ("You are an assistant that generates MongoDB aggregation pipelines based on user input. "
-           "The MongoDB collection has the following fields: Location (string), No_of_Bedrooms (integer), "
-           "No_of_Heavy_Appliances (integer), Monthly_Electricity_Bill (integer), Suitable_Solar_System (string). "
-           "Use these exact field names and generate only the pipeline as a valid JSON list without explanations.")
-
+    fields_str = ", ".join([f"{field} (type: {type(value).__name__})" for field, value in sample_document.items()])
+    return (f"You are an assistant that generates MongoDB aggregation pipelines based on user input. "
+            f"The MongoDB collection has the following fields: {fields_str}. "
+            "Use these exact field names and generate only the pipeline as a valid JSON list without explanations.")
+    
 def get_user_prompt(natural_language_query):
     return f"Generate a MongoDB aggregation pipeline to satisfy the following query:\n\n'{natural_language_query}'\n\nProvide the pipeline as a valid JSON list."
 
@@ -53,7 +65,7 @@ def generate_mongodb_pipeline(natural_language_query, model="gpt-4"):
         return "Error: Unable to parse the assistant's response as a valid JSON pipeline."
 
 # Example usage
-natural_language_query = "Find all solar systems suitable for houses with more than 4 bedrooms in California, sorted by electricity bill in descending order."
+natural_language_query = "How many total records are there in the dataset?"
 pipeline = generate_mongodb_pipeline(natural_language_query)
 
 if isinstance(pipeline, list):  # Check if the response is a valid pipeline
@@ -62,17 +74,8 @@ if isinstance(pipeline, list):  # Check if the response is a valid pipeline
 else:
     print(pipeline)
     
-    
 try:
-    # Execute the query and retrieve the results
     results = collection.aggregate(pipeline)
-    
-    # Format and print the results
-    response = "Based on your query, here are the results:\n\n"
-    for i, doc in enumerate(results, start=1):
-        response += (f"{i}. Bedrooms: {doc['No_of_Bedrooms']}, Appliances: {doc['No_of_Heavy_Appliances']}, "
-                     f"Electricity Bill: ${doc['Monthly_Electricity_Bill']}, Location: {doc['Location']}, "
-                     f"Recommended Solar System: {doc['Suitable_Solar_System']}\n\n")
-    print(response)
+    print(list(results))
 except Exception as e:
     print(f"Error: {e}")
